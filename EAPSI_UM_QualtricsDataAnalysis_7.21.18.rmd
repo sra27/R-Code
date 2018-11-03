@@ -1,0 +1,669 @@
+---
+title: "EAPSI Qualtrics Data Analysis - UM SITE"
+output:
+html_document:
+toc: true
+theme: united
+---
+
+#Set Up
+```{r set up, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#rm(list=ls()) #removes all the variables from workspace
+
+library(ggplot2)
+library(plyr)
+library(car)
+library(readr)
+library(reshape2)
+library(Hmisc)
+library(corrplot)
+library(Jmisc)
+library(ggpubr)
+library(knitr)#kable table function
+
+#Create empty matrix
+df1_PreScan<-data.frame(matrix(NA_integer_, nrow=30, ncol=0))
+df1_PostScan<-data.frame(matrix(NA_integer_, nrow=30, ncol=0))
+
+#Read in Raw Qualtrics Data
+PreScan <- read_csv("C:/Users/Psychology/Desktop/EAPSI_Miami/Raw_Data/Qualtrics/EAPSI_PreScan_Questionnaires_EN_7_06_18_Mod3_7_21_18.csv")
+
+PostScan <- read_csv("C:/Users/Psychology/Desktop/EAPSI_Miami/Raw_Data/Qualtrics/EAPSI_PostScan_Questionnaires_EN_7_10_18_7_21_18.csv")
+
+#Delete unwanted rows
+PreScan2<-PreScan[-c(1,2),]
+PostScan2<-PostScan[-c(1,2),]
+
+#get variable names
+names(PreScan2)
+names(PostScan2)
+
+#Create Row.Names column for dataframe
+PreScan2<- cbind(Row.names = rownames(PreScan2), PreScan2)
+PostScan2<- cbind(Row.names = rownames(PostScan2), PostScan2)
+````
+
+#Load PreScan Questionnaires
+```{r load prescan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#------------------
+#DEMOGRAPHIC
+
+#get subject ID
+SubjectID<-PreScan2[c(19)]
+
+#name column
+colnames(SubjectID) <- c("SubjectID")
+
+#Extract columns
+DemQ<-PreScan2[c(20:28)]
+
+#Name columns
+colnames(DemQ) <- c("DOB","Gender","Height","Weight","Ethnicity","Race","BornCountry","FirstLang","OtherLang")
+
+#calculate age from DOB
+DemQ$Age<-floor(age_calc(DemQ$DOB, enddate = Sys.Date(), units = "years", precise = TRUE))
+
+#Add columns to Matrix
+PreScan_Dat<-cbind(SubjectID, DemQ)
+
+#subset version with only age and gender
+DemQ_AgeGender<-PreScan_Dat[,c(1,3,11)]
+
+#------------------
+#CES-D
+
+#Extract columns
+CESD<-PreScan2[c(29:48)]
+
+#Name columns
+colnames(CESD) <- c("CESD_1","CESD_2","CESD_3","CESD_4","CESD_5","CESD_6",
+                    "CESD_7","CESD_8","CESD_9","CESD_10","CESD_11","CESD_12",
+                    "CESD_13","CESD_14","CESD_15","CESD_16","CESD_17","CESD_18",
+                    "CESD_19","CESD_20")
+
+#recode items to be 0,1,2,3 (currently Qualtrics gives 3,7,8,4) 
+CESD[, c(1:20)] <-as.data.frame(lapply(CESD[, c(1:20)], FUN=function(X) car::recode(X, " '3' ='0' ; '7' = '1' ; '8' = '2' ; '4' = '3' ")))
+
+#Add columns to Matrix
+PreScan_Dat2<-cbind(PreScan_Dat,CESD)
+
+#------------------
+#PANAS-S
+
+#Extract columns
+PANASS<-PreScan2[c(49:68)]
+
+#Name columns
+colnames(PANASS) <- c("PANASS_1","PANASS_2","PANASS_3","PANASS_4","PANASS_5","PANASS_6",
+                     "PANASS_7","PANASS_8","PANASS_9","PANASS_10","PANASS_11","PANASS_12",
+                     "PANASS_13","PANASS_14","PANASS_15","PANASS_16","PANASS_17","PANASS_18",
+                     "PANASS_19","PANASS_20")
+
+#check range to make sure values reflect actual questionnaire values (1-5)
+
+#Add columns to Matrix
+PreScan_Dat3<-cbind(PreScan_Dat2,PANASS)
+```
+
+#Load PostScan Questionnaires
+```{r load postscan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#------------------
+#APBQ
+
+#get subject ID
+SubjectID<-PostScan2[c(19)]
+
+#name columns
+colnames(SubjectID) <- c("SubjectID")
+
+#Extract columns
+APBQ<-PostScan2[c(20:47)]
+
+#Name columns
+colnames(APBQ) <- c("APBQM_1","APBQM_2","APBQM_3","APBQM_4","APBQM_5","APBQM_6",
+                      "APBQM_7","APBQM_8","APBQM_9","APBQM_10","APBQM_11","APBQM_12",
+                      "APBQM_13","APBQM_14","APBQF_1","APBQF_2","APBQF_3","APBQF_4",
+                      "APBQF_5","APBQF_6","APBQF_7","APBQF_8","APBQF_9","APBQF_10",
+                      "APBQF_11","APBQF_12","APBQF_13","APBQF_14")
+
+#check range to make sure values reflect actual questionnaire values (1,3,5,7)
+
+#Add columns to Matrix
+PostScan_Dat<-cbind(SubjectID, APBQ)
+
+#------------------
+#ERQ
+
+#Extract columns
+ERQ<-PostScan2[c(48:57)]
+
+#Name columns
+colnames(ERQ) <- c("ERQ_1","ERQ_2","ERQ_3","ERQ_4","ERQ_5","ERQ_6",
+                    "ERQ_7","ERQ_8","ERQ_9","ERQ_10")
+
+#check range to make sure values reflect actual questionnaire values (1-7)
+
+#Add columns to Matrix
+PostScan_Dat2<-cbind(PostScan_Dat, ERQ)
+#------------------
+#SCS
+
+#Extract columns
+SCS<-PostScan2[c(58:81)]
+
+#Name columns
+colnames(SCS) <- c("SCS_1","SCS_2","SCS_3","SCS_4","SCS_5","SCS_6",
+                      "SCS_7","SCS_8","SCS_9","SCS_10","SCS_11","SCS_12",
+                      "SCS_13","SCS_14","SCS_15","SCS_16","SCS_17","SCS_18",
+                      "SCS_19","SCS_20","SCS_21","SCS_22","SCS_23","SCS_24")
+
+#check range to make sure values reflect actual questionnaire values (1-7)
+
+#Add columns to Matrix
+PostScan_Dat3<-cbind(PostScan_Dat2, SCS)
+
+#------------------
+#IRI
+
+#Extract columns
+IRI<-PostScan2[c(82:109)]
+
+#Name columns
+colnames(IRI) <- c("IRI_1","IRI_2","IRI_3","IRI_4","IRI_5","IRI_6",
+                   "IRI_7","IRI_8","IRI_9","IRI_10","IRI_11","IRI_12",
+                   "IRI_13","IRI_14","IRI_15","IRI_16","IRI_17","IRI_18",
+                   "IRI_19","IRI_20","IRI_21","IRI_22","IRI_23","IRI_24",
+                    "IRI_25","IRI_26","IRI_27","IRI_28")
+
+#recode variables to match original scale (0-4)
+IRI2 <-as.data.frame(lapply(IRI, FUN=function(X) car::recode(X, " '1' = '0' ; '2' = '1' ; '3' = '2' ; '4' = '3' ; '5' = '4' ")))
+
+#check range to make sure values reflect actual questionnaire values (1-5)
+
+#Add columns to Matrix
+PostScan_Dat4<-cbind(PostScan_Dat3, IRI2)
+
+#------------------
+#PANAS-S
+
+#Extract columns
+PANASS<-PostScan2[c(110:129)]
+
+#Name columns
+colnames(PANASS) <- c("PANASS_1","PANASS_2","PANASS_3","PANASS_4","PANASS_5","PANASS_6",
+                     "PANASS_7","PANASS_8","PANASS_9","PANASS_10","PANASS_11","PANASS_12",
+                     "PANASS_13","PANASS_14","PANASS_15","PANASS_16","PANASS_17","PANASS_18",
+                     "PANASS_19","PANASS_20")
+
+#check range to make sure values reflect actual questionnaire values (1-4)
+
+#Add columns to Matrix
+PostScan_Dat5<-cbind(PostScan_Dat4, PANASS)
+```
+
+#Score PreScan Questionnaires
+```{r score prescan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#------------------
+#CESD
+
+# Scoring Instructions: Reverse score items 4, 8, 12, 16. The score is the sum of the 20 questions. Possible range is 0-60. If more than four questions are missing answers, do not score the CES-D questionnaire. A score of 16 points or more is considered depressed.
+
+#make numeric
+PreScan_Dat3[, c(11:30)] <- sapply(PreScan_Dat3[, c(11:30)], as.numeric)
+
+#reverse score items 4, 8, 12, 16
+myvars<-c("CESD_4","CESD_8","CESD_12","CESD_16")
+PreScan_Dat3[, myvars] <-as.data.frame(lapply(PreScan_Dat3[, myvars], FUN=function(X) car::recode(X, " '0' ='3' ; '1' = '2' ; '2' = '1' ; '3' = '0' ")))
+
+#sum columns to create total
+PreScan_Dat3$CESD_Total<-apply(PreScan_Dat3[,c(11:30)], 1, sum)
+
+#------------------
+#PANAS-S
+
+# Scoring Instructions: Positive Affect Score: Add the scores on items 1, 3, 5, 9, 10, 12, 14, 16,
+# 17, and 19. Scores can range from 10 - 50, with higher scores representing
+# higher levels of positive affect. Mean Scores: Momentary  29.7
+# ( SD  7.9); Weekly  33.3 ( SD  7.2)
+
+#make numeric
+prescan_panass_posaff_vars<-c("PANASS_1","PANASS_3","PANASS_5","PANASS_9","PANASS_10","PANASS_12","PANASS_14","PANASS_16")
+PreScan_Dat3[, prescan_panass_posaff_vars] <- sapply(PreScan_Dat3[, prescan_panass_posaff_vars], as.numeric)
+
+#sum columns to create total positive affect score
+PreScan_Dat3$PANASS_PosAff_Total<-apply(PreScan_Dat3[,prescan_panass_posaff_vars], 1, sum)
+
+# Negative Affect Score: Add the scores on items 2, 4, 6, 7, 8, 11, 13, 15,
+# 18, and 20. Scores can range from 10 - 50, with lower scores representing
+# lower levels of negative affect. Mean Score: Momentary  14.8
+# ( SD  5.4); Weekly  17.4 ( SD  6.2)
+
+#make numeric
+prescan_panass_negaff_vars<-c("PANASS_2","PANASS_4","PANASS_6","PANASS_7","PANASS_8","PANASS_11","PANASS_13","PANASS_15")
+PreScan_Dat3[, prescan_panass_negaff_vars] <- sapply(PreScan_Dat3[, prescan_panass_negaff_vars], as.numeric)
+
+#sum columns to create total negative affect score
+PreScan_Dat3$PANASS_NegAff_Total<-apply(PreScan_Dat3[,prescan_panass_negaff_vars], 1, sum)
+
+```
+
+#Score PostScan Questionnaires
+```{r score postscan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#------------------
+#APBQ
+
+# Scoring Instructions: Persad, Kamerman, and Wadley (2017) calculated the difference between the mean score of the eight statements that assess whether it is appropriate to express pain behaviors and the mean score of the six statements that assess whether it is inappropriate to express pain behaviors. The final score had a bounded range of -6 to +6, with negative values indicating a bias toward pain expression being considered inappropriate and positive values indicating a bias toward pain expression being considered appropriate. A score close to 0 was interpreted by the authors as indicating that an individual had a neutral view of pain expression.
+
+#make numeric
+PostScan_Dat5[, c(2:29)] <- sapply(PostScan_Dat5[, c(2:29)], as.numeric)
+
+#get mean score of statements about appropriateness of pain expression (1:4,7,10:12)
+APBQM_App_vars<-c("APBQM_1","APBQM_2","APBQM_3","APBQM_4","APBQM_7","APBQM_10","APBQM_11","APBQM_12")
+PostScan_Dat5$APBQM_App_Mean<-apply(PostScan_Dat5[,APBQM_App_vars], 1, mean)
+
+APBQF_App_vars<-c("APBQF_1","APBQF_2","APBQF_3","APBQF_4","APBQF_7","APBQF_10","APBQF_11","APBQF_12")
+PostScan_Dat5$APBQF_App_Mean<-apply(PostScan_Dat5[,APBQF_App_vars], 1, mean)
+
+#get mean score of statements about appropriateness of pain expression (males and females combined)
+APBQT_App_vars<-c("APBQM_1","APBQM_2","APBQM_3","APBQM_4","APBQM_7","APBQM_10","APBQM_11","APBQM_12","APBQF_1","APBQF_2","APBQF_3","APBQF_4","APBQF_7","APBQF_10","APBQF_11","APBQF_12")
+PostScan_Dat5$APBQT_App_Mean<-apply(PostScan_Dat5[,APBQT_App_vars], 1, mean)
+
+#get mean score of statements about inappropriateness of pain expression (5,6,8,9,13,14)
+APBQM_Inapp_vars<-c("APBQM_5","APBQM_6","APBQM_8","APBQM_9","APBQM_13","APBQM_14")
+PostScan_Dat5$APBQM_Inapp_Mean<-apply(PostScan_Dat5[,APBQM_Inapp_vars], 1, mean)
+
+APBQF_Inapp_vars<-c("APBQF_5","APBQF_6","APBQF_8","APBQF_9","APBQF_13","APBQF_14")
+PostScan_Dat5$APBQF_Inapp_Mean<-apply(PostScan_Dat5[,APBQF_Inapp_vars], 1, mean)
+
+#get mean score of statements about inappropriateness of pain expression (males and females combined)
+APBQT_Inapp_vars<-c("APBQM_5","APBQM_6","APBQM_8","APBQM_9","APBQM_13","APBQM_14","APBQF_5","APBQF_6","APBQF_8","APBQF_9","APBQF_13","APBQF_14")
+PostScan_Dat5$APBQT_Inapp_Mean<-apply(PostScan_Dat5[,APBQT_Inapp_vars], 1, mean)
+
+#get difference between the two mean scores
+PostScan_Dat5$APBQM_DiffScore<-(PostScan_Dat5$APBQM_App_Mean - PostScan_Dat5$APBQM_Inapp_Mean)
+PostScan_Dat5$APBQF_DiffScore<-(PostScan_Dat5$APBQF_App_Mean - PostScan_Dat5$APBQF_Inapp_Mean)
+
+#get difference between the two mean scores (males and females combined)
+PostScan_Dat5$APBQT_DiffScore<-(PostScan_Dat5$APBQT_App_Mean - PostScan_Dat5$APBQT_Inapp_Mean)
+
+#demean mean APBQ scores (male female separate) 
+PostScan_Dat5$APBQM_App_Demeaned<-demean(PostScan_Dat5$APBQM_App_Mean)
+PostScan_Dat5$APBQF_App_Demeaned<-demean(PostScan_Dat5$APBQF_App_Mean)
+
+PostScan_Dat5$APBQM_Inapp_Demeaned<-demean(PostScan_Dat5$APBQM_Inapp_Mean)
+PostScan_Dat5$APBQF_Inapp_Demeaned<-demean(PostScan_Dat5$APBQF_Inapp_Mean)
+
+#demean APBQ (male female combined) 
+PostScan_Dat5$APBQT_App_Demeaned<-demean(PostScan_Dat5$APBQT_App_Mean)
+PostScan_Dat5$APBQT_Inapp_Demeaned<-demean(PostScan_Dat5$APBQT_Inapp_Mean)
+
+#combine all subscales
+APBQ_All<-cbind.data.frame(DemQ_AgeGender,PostScan_Dat5$APBQM_Inapp_Mean,PostScan_Dat5$APBQF_Inapp_Mean,PostScan_Dat5$APBQM_App_Mean,PostScan_Dat5$APBQF_App_Mean,PostScan_Dat5$APBQT_App_Mean,PostScan_Dat5$APBQT_Inapp_Mean,PostScan_Dat5$APBQM_DiffScore,PostScan_Dat5$APBQF_DiffScore,PostScan_Dat5$APBQT_DiffScore)
+names(APBQ_All)<-c("SubjectID","Gender","Age","APBQM_Inapp_Mean","APBQF_Inapp_Mean","APBQM_App_Mean","APBQF_App_Mean","APBQT_App_Mean","APBQT_Inapp_Mean","APBQM_DiffScore","APBQF_DiffScore","APBQT_DiffScore")
+
+#write to .csv for use in EAPSI_roi_meants_thirdlevel script to look at correlations between behavioral questionnaires and brain activation
+#write.csv(APBQ_All,file="//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Scripts/APBQ_All.csv")
+#------------------
+#ERQ
+
+# Scoring Instructions: No reversals, items averaged (range 1-7) to create following 
+# subscales: Cognitive Reappraisal Items: 1, 3, 5, 7, 8, 10; Expressive Suppression Items: 2, 4, 6, 9
+
+#make numeric
+PostScan_Dat5[, c(30:39)] <- sapply(PostScan_Dat5[, c(30:39)], as.numeric)
+
+#average columns to create Reappraisal Subscale Total
+ERQ_Reappraisal_vars<-c("ERQ_1","ERQ_3","ERQ_5","ERQ_7","ERQ_8","ERQ_10")
+PostScan_Dat5$ERQ_Reappraisal_Mean<-apply(PostScan_Dat5[,ERQ_Reappraisal_vars], 1, mean)
+
+#average columns to create Suppression Subscale Total
+ERQ_Suppression_vars<-c("ERQ_2","ERQ_4","ERQ_6","ERQ_9")
+PostScan_Dat5$ERQ_Suppression_Mean<-apply(PostScan_Dat5[,ERQ_Suppression_vars], 1, mean)
+
+#subset only subject ID and ERQ subscale mean
+ERQ_Reappraisal_vars2<-c("SubjectID","ERQ_Reappraisal_Mean")
+ERQ_Reappraisal_Mean <- PostScan_Dat5[ERQ_Reappraisal_vars2]
+
+ERQ_Suppression_vars2<-c("SubjectID","ERQ_Suppression_Mean")
+ERQ_Suppression_Mean <- PostScan_Dat5[ERQ_Suppression_vars2]
+
+#create demeaned versions
+#get mean for each subscale
+mean(ERQ_Suppression_Mean$ERQ_Suppression_Mean) #mean=
+sd(ERQ_Suppression_Mean$ERQ_Suppression_Mean) #sd=
+mean(ERQ_Reappraisal_Mean$ERQ_Reappraisal_Mean) #mean=
+sd(ERQ_Reappraisal_Mean$ERQ_Reappraisal_Mean) #sd=
+
+#demean suppression scale
+ERQ_Suppression_Mean$Demeaned<-demean(ERQ_Suppression_Mean$ERQ_Suppression_Mean)
+
+#demean reappraisal scale
+ERQ_Reappraisal_Mean$Demeaned<-demean(ERQ_Reappraisal_Mean$ERQ_Reappraisal_Mean)
+
+#combine all subscales
+ERQ_All<-cbind.data.frame(DemQ_AgeGender,ERQ_Suppression_Mean$ERQ_Suppression_Mean,ERQ_Reappraisal_Mean$ERQ_Reappraisal_Mean)
+names(ERQ_All)<-c("SubjectID","Gender","Age","ERQ_Suppression_Mean","ERQ_Reapparaisal_Mean")
+
+#get mean by gender
+#aggregate(ERQ_All[, 2], list(ERQ_All$Gender), mean)
+
+#write to .csv for use in EAPSI_roi_meants_thirdlevel script to look at correlations between behavioral questionnaires and brain activation
+#write.csv(ERQ_All,file="//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Scripts/ERQ_All.csv")
+#------------------
+#SCS
+
+# Scoring Instructions: Add each subject's scores (1 to 7) for the independent items and divide
+# by 15 to give the mean score of the items. Then, do the same for the interdependent items.
+# Each subject receives two scores: one for the strength of the independent self and one for
+# the interdependent self. These two aspects of self are separate factors, not opposite poles
+# of a single construct. Therefore, each aspect of self needs consideration.
+
+# Independent Subscale (Independence): 3,5,7,8,12,14,15,16,17,19,21,22
+# Interdependent Subscale (Interdepedence): 1,2,4,6,9,10,11,13,18,20,23,24
+
+#make numeric
+PostScan_Dat5[, c(40:63)] <- sapply(PostScan_Dat5[, c(40:63)], as.numeric)
+
+#average columns to create mean score for each aspect of self
+SCS_Independent_vars<-c("SCS_3","SCS_5","SCS_7","SCS_8","SCS_12","SCS_14","SCS_15","SCS_16","SCS_17","SCS_19","SCS_21","SCS_22")
+PostScan_Dat5$SCS_Independent_Mean<-apply(PostScan_Dat5[,SCS_Independent_vars], 1, mean)
+
+SCS_Interdependent_vars<-c("SCS_1","SCS_2","SCS_4","SCS_6","SCS_9","SCS_10","SCS_11","SCS_13","SCS_18","SCS_20","SCS_23","SCS_24")
+PostScan_Dat5$SCS_Interdependent_Mean<-apply(PostScan_Dat5[,SCS_Interdependent_vars], 1, mean)
+
+mean(PostScan_Dat5$SCS_Independent_Mean) #mean=
+sd(PostScan_Dat5$SCS_Independent_Mean) #sd=
+
+mean(PostScan_Dat5$SCS_Interdependent_Mean) #mean=
+sd(PostScan_Dat5$SCS_Interdependent_Mean) #sd=
+
+#------------------
+#IRI
+
+# Scoring Instructions: 
+
+# Reverse-scored items: 3,4,7,12,13,14,15,18,19
+
+# Perspective-taking Scale (PT): 3,8,11,15,21,25,28
+# Fantasy Scale (FS): 1,5,7,12,16,23,26
+# Empathic Concern Scale (EC): 2,4,9,14,18,20,22
+# Personal Distress Scale (PD): 6,10,13,17,19,24,27
+
+#make numeric
+PostScan_Dat5[, c(64:91)] <- sapply(PostScan_Dat5[, c(64:91)], as.numeric)
+
+#reverse score items
+IRI_reversescore_vars<-c("IRI_3","IRI_4","IRI_7","IRI_12","IRI_13","IRI_14","IRI_15","IRI_18","IRI_19")
+PostScan_Dat5[,IRI_reversescore_vars] <-as.data.frame(lapply(PostScan_Dat5[, IRI_reversescore_vars], FUN=function(X) car::recode(X, " '0' ='4' ; '1' = '3' ; '3' = '1' ; '4' = '0' ")))
+
+#sum columns to create PT Scale total
+IRI_PT_vars<-c("IRI_3","IRI_8","IRI_11","IRI_15","IRI_21","IRI_25","IRI_28")
+PostScan_Dat5$IRI_PT_Total<-apply(PostScan_Dat5[,IRI_PT_vars], 1, sum)
+
+#sum columns to create FS Scale total
+IRI_FS_vars<-c("IRI_1","IRI_5","IRI_7","IRI_12","IRI_16","IRI_23","IRI_26")
+PostScan_Dat5$IRI_FS_Total<-apply(PostScan_Dat5[,IRI_FS_vars], 1, sum)
+
+#sum columns to create EC Scale total
+IRI_EC_vars<-c("IRI_2","IRI_4","IRI_9","IRI_14","IRI_18","IRI_20","IRI_22")
+PostScan_Dat5$IRI_EC_Total<-apply(PostScan_Dat5[,IRI_EC_vars], 1, sum)
+
+#sum columns to create PD Scale total
+IRI_PD_vars<-c("IRI_6","IRI_10","IRI_13","IRI_17","IRI_19","IRI_24","IRI_27")
+PostScan_Dat5$IRI_PD_Total<-apply(PostScan_Dat5[,IRI_PD_vars], 1, sum)
+
+#subset only subject ID and subscale mean
+#names(PostScan_Dat5)
+IRI_PT_Total <- PostScan_Dat5[c("SubjectID","IRI_PT_Total")]
+IRI_FS_Total <- PostScan_Dat5[c("SubjectID","IRI_FS_Total")]
+IRI_EC_Total <- PostScan_Dat5[c("SubjectID","IRI_EC_Total")]
+IRI_PD_Total <- PostScan_Dat5[c("SubjectID","IRI_PD_Total")]
+
+#create demeaned versions
+#get mean of empathic concern subscale
+mean(IRI_EC_Total$IRI_EC_Total) #mean=
+sd(IRI_EC_Total$IRI_EC_Total) #sd=
+range(IRI_EC_Total$IRI_EC_Total)#
+mean(IRI_PT_Total$IRI_PT_Total) #mean=
+sd(IRI_PT_Total$IRI_PT_Total) #
+range(IRI_PT_Total$IRI_PT_Total)# 
+mean(IRI_FS_Total$IRI_FS_Total) #mean=
+range(IRI_FS_Total$IRI_FS_Total)# 
+
+#demean
+IRI_EC_Total$Demeaned<-demean(IRI_EC_Total$IRI_EC_Total)
+IRI_PT_Total$Demeaned<-demean(IRI_PT_Total$IRI_PT_Total)
+IRI_FS_Total$Demeaned<-demean(IRI_FS_Total$IRI_FS_Total)
+
+#combine all subscales
+#names(PostScan_Dat5)
+IRI_All<-cbind(PostScan_Dat5[,c("IRI_PT_Total","IRI_FS_Total","IRI_EC_Total","IRI_PD_Total")])
+
+#get IRI means by gender
+#aggregate(IRI_All[, 4:7], list(IRI_All$Gender), mean)
+
+#write to .csv for use in EAPSI_roi_meants_thirdlevel script to look at correlations between behavioral questionnaires and brain activation
+#write.csv(IRI_All,file="//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Scripts/IRI_All.csv")
+#------------------
+#PANAS-S
+
+# Scoring Instructions: Positive Affect Score: Add the scores on items 1, 3, 5, 9, 10, 12, 14, 16,
+# 17, and 19. Scores can range from 10 - 50, with higher scores representing
+# higher levels of positive affect. Mean Scores: Momentary  29.7
+# ( SD  7.9); Weekly  33.3 ( SD  7.2)
+
+#make numeric
+postscan_panass_posaff_vars<-c("PANASS_1","PANASS_3","PANASS_5","PANASS_9","PANASS_10","PANASS_12","PANASS_14","PANASS_16")
+PostScan_Dat5[, postscan_panass_posaff_vars] <- sapply(PostScan_Dat5[, postscan_panass_posaff_vars], as.numeric)
+
+#sum columns to create total positive affect score
+PostScan_Dat5$PANASS_PosAff_Total<-apply(PostScan_Dat5[,postscan_panass_posaff_vars], 1, sum)
+
+# Negative Affect Score: Add the scores on items 2, 4, 6, 7, 8, 11, 13, 15,
+# 18, and 20. Scores can range from 10 - 50, with lower scores representing
+# lower levels of negative affect. Mean Score: Momentary  14.8
+# ( SD  5.4); Weekly  17.4 ( SD  6.2)
+
+#make numeric
+postscan_panass_negaff_vars<-c("PANASS_2","PANASS_4","PANASS_6","PANASS_7","PANASS_8","PANASS_11","PANASS_13","PANASS_15")
+PostScan_Dat5[, postscan_panass_negaff_vars] <- sapply(PostScan_Dat5[, postscan_panass_negaff_vars], as.numeric)
+
+#sum columns to create total negative affect score
+PostScan_Dat5$PANASS_NegAff_Total<-apply(PostScan_Dat5[,postscan_panass_negaff_vars], 1, sum)
+
+#write to .csv for use in EAPSI_roi_meants_thirdlevel script to look at correlations between behavioral questionnaires and brain activation
+#write.csv(STAI_All,file="//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Scripts/STAI_All.csv")
+```
+
+#Analyze PreScan Questionnaire Results
+```{r analyze prescan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#subset only scored questionnaires
+PreScan_Dat3_scored<-PreScan_Dat3[,c("CESD_Total","PANASS_PosAff_Total","PANASS_NegAff_Total")]
+
+```
+
+#Analyze PostScan Questionnaire Results
+```{r analyze postcan questionnaires, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#names(PostScan_Dat5)
+
+#subset only scored questionnaires
+PostScan_Dat5_scored<-PostScan_Dat5[,c("APBQM_App_Mean","APBQF_App_Mean","APBQT_App_Mean","APBQM_Inapp_Mean","APBQF_Inapp_Mean","APBQT_Inapp_Mean","APBQM_DiffScore","APBQF_DiffScore","APBQT_DiffScore","ERQ_Reappraisal_Mean","ERQ_Suppression_Mean","SCS_Independent_Mean","SCS_Interdependent_Mean","IRI_PT_Total","IRI_FS_Total","IRI_EC_Total","IRI_PD_Total","PANASS_PosAff_Total","PANASS_NegAff_Total")]
+
+#check individual correlations using rcorr
+rcorr(PostScan_Dat5_scored$ERQ_Suppression_Mean,PostScan_Dat5_scored$IRI_EC_Total,type=c("pearson"))
+rcorr(PostScan_Dat5_scored$SCS_Interdependent_Mean,PostScan_Dat5_scored$IRI_PT_Total,type=c("pearson"))
+
+rcorr(PostScan_Dat5_scored$APBQT_Inapp_Mean,PostScan_Dat5_scored$ERQ_Suppression_Mean,type=c("pearson"))
+
+#simple method
+M<-cor(PostScan_Dat5_scored)
+corrplot(M, method="number")
+
+#more complex method 
+r_task1<-corr.test(PostScan_Dat5_scored, y = NULL, use = "pairwise",method="pearson",adjust="none", alpha=.05,ci=F)
+
+#cor.mtest function
+cor.mtest <- function(mat, conf.level = 0.95) {
+mat <- as.matrix(mat)
+n <- ncol(mat)
+p.mat <- lowCI.mat <- uppCI.mat <- matrix(NA, n, n)
+diag(p.mat) <- 0
+diag(lowCI.mat) <- diag(uppCI.mat) <- 1
+for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+        tmp <- cor.test(mat[, i], mat[, j], conf.level = conf.level)
+        p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        lowCI.mat[i, j] <- lowCI.mat[j, i] <- tmp$conf.int[1]
+        uppCI.mat[i, j] <- uppCI.mat[j, i] <- tmp$conf.int[2]
+    }
+}
+return(list(p.mat, lowCI.mat, uppCI.mat))
+}
+
+#adjust p-value for multiple corrections
+res1_task1 <- cor.mtest(PostScan_Dat5_scored, 0.95)
+pAdj1_task1 <- p.adjust(c(res1_task1[[1]]), method = "fdr")
+resAdj1_task1 <- matrix(pAdj1_task1, ncol = dim(res1_task1[[1]])[1])
+
+#plot using corrplot - task 1
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+corrplot(r_task1$r, method = "color", col = col(200), type="full",number.cex = .7,
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         # Combine with significance
+         p.mat = resAdj1_task1, sig.level = 0.001, insig = "blank", 
+         # hide correlation coefficient on the principal diagonal
+         diag = FALSE)
+```
+
+
+#Plot APBQ  
+```{r plot APBQ, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#set theme to black and white
+theme_set(theme_bw())
+
+#get mean by subject
+summary_threshtol<-aggregate(PostScan_Dat5$ThreshTolRating, list(phaseII_master9$PtID,phaseII_master9$StimType,phaseII_master9$RaceEthConcordance,phaseII_master9$RaceConcordance,phaseII_master9$MajorityConcordance,phaseII_master9$Pt_Gender,phaseII_master9$Pt_RaceEth), mean,na.rm=T)
+colnames(summary_threshtol)<-c("PtID","StimType","RaceEthConcordance","RaceConcordance","MajorityConcordance","Pt_Gender","Pt_RaceEth","Mean")
+
+#get only StimType thresh/tol
+summary_threshtol_sub <- summary_threshtol[ which(summary_threshtol$StimType=='Thr' | summary_threshtol$StimType=='Tol'), ]
+
+
+#Plot both APBQ-M and APBQ-F by Subject
+dat_long <- melt(PostScan_Dat5, id="SubjectID")
+APBQ_long<-dat_long[3481:3540,]
+
+#png(file="C:/Users/Psychology/Desktop/EAPSI_BEIJING/EAPSI_Data_Analysis/Questionnaires/APBQ_qualtrics_30sub.png")
+n <- ggplot(APBQ_long, aes(factor(variable,labels=c("APBQ-M","APBQ-F")), value,colour=variable,fill=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width = 0.2) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") + labs(x = "APBQ") 
+#dev.off()
+
+#make stimtype numeric for t-test
+APBQ_long$value<-as.numeric(APBQ_long$value)
+APBQ_long$variable<-as.numeric(APBQ_long$variable)
+APBQ_long$SubjectID<-as.numeric(APBQ_long$SubjectID)
+
+#paired t-test
+t.test(APBQ_long$value,APBQ_long$variable,paired=T) 
+#t = 243.67, df = 145, p-value < .001
+```
+
+#Plot ERQ
+```{r plot ERQ, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#Plot ERQ 
+ERQ_long<-dat_long[c(3481:3540),]
+
+png(file="C:/Users/Psychology/Desktop/EAPSI_BEIJING/EAPSI_Data_Analysis/Questionnaires/ERQ_qualtrics_30sub.png")
+n <- ggplot(ERQ_long, aes(factor(variable, labels=c("Cognitive Reappraisal","Expressive Suppression")), value,colour=variable,fill=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width = 0.1) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") + labs(x = "ERQ") 
+dev.off()
+```
+
+#Plot SCS
+```{r plot SCS, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#Plot SCS
+SCS_long<-dat_long[c(3541:3600),]
+
+png(file="C:/Users/Psychology/Desktop/EAPSI_BEIJING/EAPSI_Data_Analysis/Questionnaires/SCS_qualtrics_30sub.png")
+n <- ggplot(SCS_long, aes(factor(variable, labels=c("SCS-Independence","SCS-Interdependence")),value,colour=variable,fill=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width=0.3) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") + labs(x = "SCS") 
+dev.off()
+```
+
+#Plot IRI 
+```{r plot IRI, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#IRI Empathic Concern
+IRI_long<-dat_long[c(3601:3720),]
+
+png(file="C:/Users/Psychology/Desktop/EAPSI_BEIJING/EAPSI_Data_Analysis/Questionnaires/IRI_qualtrics_30sub.png")
+n <- ggplot(IRI_long, aes(factor(variable, labels=c("PT","FS","EC","PD")),value,colour=variable,fill=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width = 0.2) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") + labs(x = "IRI") 
+dev.off()
+
+#-------------------
+
+#Plot ERQ Suppression and SCS by Subject
+ERQ_Suppression_SCS_long<-dat_long[c(3511:3540,3541:3600),]
+
+n <- ggplot(ERQ_Suppression_SCS_long, aes(factor(variable),value,colour=variable,fill=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width = 0.2) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") 
+
+#Plot ERQ Suppression and IRI Empathy Concern by Subject
+ERQ_Suppression_IRI_long<-dat_long[c(352:354,367:369),]
+
+n <- ggplot(n <- ggplot(ERQ_Suppression_IRI_long, aes(factor(variable)),value,colour=variable))
+n + geom_point(position=position_jitterdodge(dodge.width=0.7), alpha = 0.8)  + 
+  geom_boxplot(width = 0.2) + stat_summary(aes(group = variable, color = SubjectID), geom = "point", fun.y = mean, shape = 18, size = 4,position = position_dodge(width=0.75)) + theme(legend.position="none") 
+
+#Plot ERQ Suppression and APBQ by Subject
+ERQ_Suppression_APBQ_long<-dat_long[c(3511:3540,3421:3480),]
+
+ggplot(data=ERQ_Suppression_APBQ_long,
+       aes(x=SubjectID, y=value, colour=variable,group = variable)) +
+       geom_line()
+
+#scatter plot
+ggscatter(PostScan_Dat5, x = "ERQ_Suppression_Mean", y = "APBQT_Inapp_Mean",
+          add = "reg.line", conf.int = TRUE,fill="blue",
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "ERQ Sup", ylab = "APBQ (M+F) Inapp Mean")
+```
+
+#Tables
+```{r tables, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#prescan ratings
+#melt data so longwise
+PreScan_Dat3_scored_melted<-melt(PreScan_Dat3_scored)
+
+ #Plot your table with table Grob in the library(gridExtra)
+library(gridExtra)
+
+   #Arrange them as you want with grid.arrange
+png("C:/Users/Psychology/Desktop/EAPSI_Miami/Figures/sub-31_PreScanRatings.png")
+  grid.table(PreScan_Dat3_scored_melted)
+dev.off()
+
+#-----------------------------------------------
+#postscan ratings
+#melt data so longwise
+PostScan_Dat5_scored_melted<-melt(PostScan_Dat5_scored)
+
+ #Plot your table with table Grob in the library(gridExtra)
+
+   #Arrange them as you want with grid.arrange
+png("C:/Users/Psychology/Desktop/EAPSI_Miami/Figures/sub-31_PostScanRatings.png")
+  grid.table(PostScan_Dat5_scored_melted)
+dev.off()
+```
