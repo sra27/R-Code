@@ -1,0 +1,132 @@
+---
+title: "Combine_Plots"
+author: "Steven Anderson"
+date: "January 11, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(stringr)
+library(plyr)
+library(dplyr)
+library(ggpubr) 
+library(tidyr)
+library(reshape)
+library(ggplot2)
+library(ggstatsplot)
+```
+
+#combine into one plot
+```{r combine into one plot}
+#merge
+response_all1<-merge(response_values_cope28_cope29_2,response_values_cope16_cope17_2,id="Subject")
+  
+response_all2<-merge(response_all1,response_values_cope14_cope15_2,id="Subject")     
+response_all3<-merge(response_all2,response_values_cope32_cope33_2,id="Subject")   
+
+#rename columns
+colnames(response_all3)<-c("Subject","StimH_LT_HH","StimH_HT_HH","Inten_LT","Inten_HT","Unple_LT","Unple_HT","StimJ_LT","StimJ_HT")
+
+#reorder columns
+response_all4<-nps_all3[,c(1,8,9,2,3,4,5,6,7)]
+
+#melt
+response_all4_melted<-melt(response_all4,id="Subject")
+
+#create Part variable for easier faceting
+response_all4_melted$Part = ifelse(grepl("(StimH_LTrust|StimH_HT)",response_all4_melted$variable),"Heat",
+                                         ifelse(grepl("(Inten_LT|Inten_HT)",response_all4_melted$variable),"Inten. Rating",
+                                                ifelse(grepl("(Unple_LT|Unple_HT)",response_all4_melted$variable),"Unpl. Rating",
+                                                ifelse(grepl("(StimJ_LT|StimJ_HT)",response_all4_melted$variable),"Anticipation",0))))
+
+#create TrustLevel variable for easier coloring
+nps_all4_melted$TLevel = ifelse(grepl("(StimH_LT|Inten_LT|Unple_LT|StimJ_LT)",response_all4_melted$variable),"LT",
+                                                ifelse(grepl("(StimH_HT|Inten_HT|Unple_HT|StimJ_HT)",response_all4_melted$variable),"HT",0))
+
+#drop variable 
+response_all4_melted2<-subset(response_all4_melted, select = -c(2))
+
+#reorder levels of TrustLevel factor
+response_all4_melted2$TLevel <- factor(response_all4_melted2$TLevel, levels = c("LT","HT"))
+
+#reorder levels of Part factor
+response_all4_melted2$Part <- factor(response_all4_melted2$Part, levels = c("Anticipation","Heat","Inten. Rating","Unpl. Rating"))
+```
+
+
+#plot with ggplot 1
+```{r plot with ggplot 1}
+m <- ggplot(response_all4_melted2, aes(TrustLevel, value,(colour=TrustLevel)),alpha=.06) + guides(fill=FALSE)
+n <- m + geom_violin(aes(colour=TrustLevel),notch=T,width = 0.5, adjust=.5) 
+p <- n + geom_point(data=nps_all4_melted2,aes(colour=TrustLevel),alpha=.8,position=position_jitterdodge(dodge.width = 0.53))+ stat_summary(aes(group=TrustLevel),geom = "point", fun.y = mean, shape = 18, size = 4,col="gray48",position = position_dodge(width=.48)) + geom_line(aes(group = Subject),col="gray48") 
+q <- p+theme_classic() + theme(legend.position = "right") + ylab("Response for Activation Period") + geom_hline(yintercept=0, linetype="dashed", color = "black") +   theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+#plot with facet grid and signficance labels
+q  + facet_grid(~Part,switch="x") + theme(
+   strip.background = element_rect(
+     color="white", fill="white", size=1.5, linetype="solid"
+     )
+   ) + stat_compare_means(label = "p.signif",paired=TRUE,method="t.test", label.x = 1.5,size=3.5)
+```
+
+#plot with ggplot 2
+```{r plot with ggplot 2}
+m <- ggplot(nps_all4_melted2, aes(TrustLevel, value,(colour=TrustLevel)),alpha=.06) + guides(fill=FALSE)
+n <- m + geom_boxplot(aes(colour=TrustLevel),notch=T,width = 0.5) 
+p <- n + stat_summary(aes(group=TrustLevel),geom = "point", fun.y = mean, shape = 18, size = 3,col="gray34",position = position_dodge(width=.48))
+q <- p+theme_classic() + theme(legend.position = "right",legend.title=element_blank()) + ylab("response for Activation Period") + geom_hline(yintercept=0, linetype="dashed", color = "black") +   theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+#do pairwise comparisons
+my_comparisons <- list( c("LT", "HT"))
+
+#plot with facet grid and signficance labels
+q  + facet_grid(~Part,switch="x") + theme(
+   strip.background = element_rect(
+     color="white", fill="white", size=1.5, linetype="solid"
+     )
+   ) + stat_compare_means(label = "p.format",paired=TRUE,method="t.test", label.x = 1.5,size=3.5)
+```
+
+#ggplot with subject lines 
+```{r ggplot with subject lines }
+r <- ggplot(nps_all4_melted2_subset, aes(TrustLevel, value,(colour=TrustLevel)),alpha=.06) + guides(fill=FALSE)
+f <- r + geom_violin(aes(colour=TrustLevel),trim=F,width = 0.5) 
+j <- f + geom_point(data=nps_all4_melted2_subset,aes(colour=TrustLevel),alpha=.8)+ stat_summary(aes(group=TrustLevel),geom = "point", fun.y = mean, shape = 18, size = 5,col="gray21",position = position_dodge(width=.48)) + geom_line(aes(group = Subject),col="gray48",alpha=.3) 
+d <- j+theme_classic() + theme(legend.position = "right") + ylab("NPS Response") +   theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + scale_colour_manual(values = c("dodgerblue3", "seagreen3"))
+
+#plot with facet grid and signficance labels
+d  + facet_grid(~Part,switch="x") + theme(
+   strip.background = element_rect(
+     color="white", fill="white", size=1.5, linetype="solid"
+     )
+   ) + stat_compare_means(label = "p.signif",paired=TRUE,method="t.test", label.x = 1.4,size=7)
+   
+```
+
+#plot with ggpaired 
+```{r plot with ggpaired }
+p <- ggpaired(nps_all4_melted2, x = "TrustLevel", y = "value",
+          color = "TrustLevel", id="Subject",notch=TRUE,
+          line.color = "gray91", line.size = 0.15,
+          switch="x",nrow = 1, ncol = 4) + stat_summary(aes(group=TrustLevel),geom = "point", fun.y = mean, shape = 18, size = 3,col="gray34",position = position_dodge(width=.48)) + facet_grid(~Part,switch="x")
+
+# Use only p.format as label. Remove method name.
+q <- p + stat_compare_means(label = "p.format",paired=TRUE,method="t.test", label.x = 1.5)
+
+q + theme_classic() + theme(legend.position = "right",legend.title=element_blank()) + ylab("NPS Response for Activation Period") + geom_hline(yintercept=0, linetype="dashed", color = "gray34") +   theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),strip.background = element_rect(
+     color="white", fill="white", size=1.5, linetype="solid"
+     )
+   )
+  
+```
+   

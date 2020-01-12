@@ -1,0 +1,887 @@
+
+#setup
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+library(gimme)
+library(plyr)
+library(stringr)
+library(dplyr)
+library(data.table)
+library(tidyr)
+library(reshape2)
+library(RColorBrewer)
+library(Hmisc)
+library(corrplot)
+
+#remove everything from environment
+rm(list=ls())
+
+#formula to select run_number
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+#increase max.print
+options(max.print=1000000)
+```
+
+
+#load ROIs (run1)
+```{r load ROIs (run1), echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+subject=list("sub-01","sub-02","sub-03","sub-04","sub-05","sub-06","sub-07","sub-08","sub-09","sub-10","sub-11","sub-12","sub-13","sub-14","sub-15","sub-16","sub-17","sub-18","sub-19","sub-20","sub-21","sub-22","sub-23","sub-24","sub-25","sub-26","sub-27","sub-28","sub-29","sub-30")
+
+setwd("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1")
+
+#OP sphere 
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*OP_Cope7_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("OP_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_OP_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#preSMA Cope 2 sphere
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*preSMA_funcpeak_v2_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("preSMA_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_preSMA_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#rLOC sphere
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rLOC_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rLOC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_rLOC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#rIFG Cope 2 sphere 
+for (p  in subject){
+
+gimmeAlist_rIFG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rIFG_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rIFG_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_rIFG_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#rMTG Cope2 sphere 
+for (p  in subject){
+
+gimmeAlist_MTG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rMTG_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("MTG_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_rMTG_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#rIPC  Cope4 sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rIPC_funcpeak_v2_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rIPC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_rIPC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#lLOc Cope1 sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*lLOC_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("lLOC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_lLOC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#FP Cope1  sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs1"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*FP_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("FP_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs1/",(p),"_FP_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+```
+
+#load ROIs (run2)
+```{r load ROIs (run 2), echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+subject=list("sub-01","sub-02","sub-03","sub-04","sub-05","sub-06","sub-07","sub-08","sub-09","sub-10","sub-11","sub-12","sub-13","sub-14","sub-15","sub-16","sub-17","sub-18","sub-19","sub-20","sub-21","sub-22","sub-23","sub-24","sub-25","sub-26","sub-27","sub-28","sub-29","sub-30")
+
+setwd("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2")
+
+#OP sphere 
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*OP_Cope7_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("OP_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_OP_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#preSMA Cope 2 sphere
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*preSMA_funcpeak_v2_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("preSMA_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_preSMA_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#rLOC sphere
+for (p  in subject){
+
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rLOC_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rLOC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_rLOC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#rIFG Cope 2 sphere 
+for (p  in subject){
+
+gimmeAlist_rIFG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rIFG_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rIFG_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_rIFG_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#rMTG Cope2 sphere 
+for (p  in subject){
+
+gimmeAlist_MTG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rMTG_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("MTG_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_rMTG_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#rIPC  Cope4 sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*rIPC_funcpeak_v2_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("rIPC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_rIPC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+
+#lLOc Cope1 sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*lLOC_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("lLOC_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_lLOC_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+#FP Cope1  sphere 
+for (p  in subject){
+
+gimmeAlist_rAG_sphere_prethreshmul <- list()
+path = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeA_sphere_funcpeak_runs2"
+out.file<-""
+file.names <- dir(path, pattern = paste0("",(p),".*FP_Cope1_funcpeak_meants.*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  names(file)[1]=c("V1")
+  names(out.file)[1]=c("V1")
+
+  #remove last 2 rows to remove end_run
+  file1 <- data.frame(file[-c(210:211), ])
+  names(file1)[1]=c("V1")
+
+  out.file <- rbind(out.file, file1)
+  out.file2 <- data.frame(out.file[-1, ])
+  out.file3 <- data.frame(lapply(out.file2, as.character), stringsAsFactors=FALSE)
+  out.file4 <- data.frame(lapply(out.file3, as.numeric), stringsAsFactors=FALSE)
+  names(out.file4)[1]=c("FP_func")
+}
+
+write.table(out.file4, file = paste("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_runs2/",(p),"_FP_funcpeak.txt",sep=""),sep="\t",row.names=FALSE)
+
+print(p)
+}
+
+```
+
+
+#concatenate ROIs (run1)
+```{r concatenate ROIs (run1), echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+subject=list("sub-01","sub-02","sub-03","sub-04","sub-05","sub-06","sub-07","sub-08","sub-09","sub-10","sub-11","sub-12","sub-13","sub-14","sub-15","sub-16","sub-17","sub-18","sub-19","sub-20","sub-21","sub-22","sub-23","sub-24","sub-25","sub-26","sub-27","sub-28","sub-29","sub-30")
+
+
+mybiglist <- list()
+for (z  in subject){
+setwd("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_v4_runs1/")
+path2 = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_v4_runs1/"
+out.file2 <-""
+file.names <- dir(path2, pattern = paste0("",(z),".*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file2 <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  out.file2 <- cbind(out.file2, file2)
+  out.file3 <- data.frame(out.file2[-c(1),])
+  out.file4 <- data.frame(out.file3[-c(1)])
+  out.file4 <- data.frame(lapply(out.file4, as.numeric), stringsAsFactors=FALSE)
+}
+
+
+ names(out.file4) <- c("FP","lLOC","rMTG","rIPC","rIFG","rLOC","preSMA","OP")
+
+
+#save to list
+mybiglist[[z]] <- (out.file4)
+
+print(z)
+}
+
+```
+
+#concatenate ROIs (run2)
+```{r concatenate ROIs (run2), echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+subject=list("sub-01","sub-02","sub-03","sub-04","sub-05","sub-06","sub-07","sub-08","sub-09","sub-10","sub-11","sub-12","sub-13","sub-14","sub-15","sub-16","sub-17","sub-18","sub-19","sub-20","sub-21","sub-22","sub-23","sub-24","sub-25","sub-26","sub-27","sub-28","sub-29","sub-30")
+
+mybiglist <- list()
+for (z  in subject){
+setwd("C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_v4_runs2/")
+path2 = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeB_sphere_funcpeak_v4_runs2/"
+out.file2 <-""
+file.names <- dir(path2, pattern = paste0("",(z),".*txt",sep=""))
+
+for(i in 1:length(file.names)){
+  file2 <- read.table(file.names[i],header=F, sep="\t", stringsAsFactors=FALSE)
+  out.file2 <- cbind(out.file2, file2)
+  out.file3 <- data.frame(out.file2[-c(1),])
+  out.file4 <- data.frame(out.file3[-c(1)])
+  out.file4 <- data.frame(lapply(out.file4, as.numeric), stringsAsFactors=FALSE)
+}
+
+
+ names(out.file4) <- c("FP","lLOC","rMTG","rIPC","rIFG","rLOC","preSMA","OP")
+
+
+#save to list
+mybiglist[[z]] <- (out.file4)
+
+print(z)
+}
+
+```
+
+
+#prepare event regressors 
+```{r prepare event regressors, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+subject2=list("sub-01","sub-02","sub-03","sub-04","sub-05","sub-06","sub-07","sub-08","sub-09","sub-10","sub-11","sub-12","sub-13","sub-14","sub-15","sub-16","sub-17","sub-18","sub-19","sub-20","sub-21","sub-22","sub-23","sub-24","sub-25","sub-26","sub-27","sub-28","sub-29","sub-30")
+
+#load subject logfiles
+stimlistsmall <- list()
+stimlistbig<- list()
+
+for (y  in subject2){
+setwd("//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Raw_Data/Presentation_Logfiles/Scan/All_Subjects_runs1")
+path = "//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/EAPSI_Beijing/Raw_Data/Presentation_Logfiles/Scan/All_Subjects_runs1"
+
+out <-NULL
+out.file<-NULL
+file.names <- dir(path, pattern = paste0("",(y),".*log",sep=""))
+
+#debug
+ #i<-1
+ #y<-"sub-01"
+
+for(i in 1:length(file.names)){
+  file2 <- read.csv(file.names[i], header=T,skip=3,sep="\t",fill=T,stringsAsFactors = T)
+  bslRow<-as.numeric(match('baseline',file2$Code)) #find start of baseline
+  baseline_time<-as.numeric(file2[bslRow,c("Time")])
+
+  #Get Run Number
+  run<-filter(file2, grepl("run_",Code))
+  run<- as.character(run$Code[1])
+  run<-as.numeric(substrRight(run, 1))
+  
+  #create column with run number
+  file2$Run <- rep(run, each=1)
+  
+  #Select Subject number
+  subject<- as.numeric(file2[1,c("Subject")])
+  
+  #Subtract (time - initial time) and divide by 10,000 to get initial time
+  for (j in 1:nrow(file2)){
+    file2[j, c("Time_sec")] <- ((file2[j,c("Time")]) - baseline_time)/10000
+  }
+  
+  #divide Time_sec by TR (2)
+  file2$TR <- file2$Time_sec / 2
+  
+  #remove rows before first baseline
+  file3 <- file2[-c(1:6), ] 
+  
+  #remove rows after final baseline (removing end_run)
+  n<-dim(file3)[1]
+  file4<-file3[1:(n-3),]
+
+  #rbind to out.file
+  out.file2 <- rbind(out.file, file4)
+
+  #round TR column (required because your events weren't time-locked)
+  out.file2$TR_Rounded<-round(as.numeric(out.file2$TR), digits = 0)
+
+  #get all rows with events 
+  x <- c("stim_lookneg_", "stim_lookneu_", "stim_suppress_")
+  events <- subset(out.file2, grepl(paste(x, collapse = "|"), out.file2$Code) )
+  
+  #change to remove stim ID info
+  events2 <- data.frame(lapply(events, as.character), stringsAsFactors=FALSE)
+  events2[grepl("stim_lookneg_", events2$Code), "Code"] <- "stim_lookneg"
+  events2[grepl("stim_suppress_", events2$Code), "Code"] <- "stim_suppress"
+  events2[grepl("stim_lookneu_", events2$Code), "Code"] <- "stim_lookneu"
+
+  #make TR_Rounded numeric 
+  events2$TR_Rounded <- as.numeric(events2$TR_Rounded)
+  
+  #make Run numeric 
+  events2$Run <- as.numeric(events2$Run)
+
+  #add sub- to subject to match input files
+  events2$Subject <- paste("sub-", events2$Subject,sep="")
+  events2$Subject <- subject
+  
+  #create empty df with number of rows equal to 633 (timepoints) and columns for each regressor
+  EV <- data.frame(rep(1:209, times=1, each=1),rep(subject, times=209, each=1),rep(run, times=209, each=1), NA,NA, NA)
+  colnames(EV) <- c("TR_Rounded","Subject","Run","stim_lookneg","stim_lookneu","stim_suppress")
+
+  #make TR_Rounded numeric 
+  EV$TR_Rounded <- as.numeric(EV$TR_Rounded)
+  
+  #merge with timing file
+  EV3 <- merge(EV,events2,all=T,by=c("TR_Rounded","Subject","Run"))
+
+  #make numeric
+  EV3$TR_Rounded <- as.numeric(EV3$TR_Rounded)
+  EV3$Run <- as.numeric(EV3$Run)
+  
+  #make character
+  EV4 <- data.frame(lapply(EV3, as.character), stringsAsFactors=FALSE)
+  
+  #make NAs = 0 
+  EV4[is.na(EV4)] <- 0
+
+  #recode LNeg and Sup to Code stim onsets 
+  EV4.3<-as.data.table(EV4)[Code == "stim_lookneg", stim_lookneg := Code][]
+  EV4.3<-as.data.table(EV4.3)[Code == "stim_lookneu", stim_lookneu := Code][]
+  EV4.3<-as.data.table(EV4.3)[Code == "stim_suppress", stim_suppress := Code][]
+
+  #recode to 1
+  EV4.3$stim_lookneg[EV4.3$stim_lookneg == "stim_lookneg" ] <- 1 
+  EV4.3$stim_lookneu[EV4.3$stim_lookneu == "stim_lookneu" ] <- 1 
+  EV4.3$stim_suppress[EV4.3$stim_suppress == "stim_suppress" ] <- 1 
+
+  #cue_lookneg
+  these_rows_cue_lookneg <- which(EV4.3$stim_lookneg == 1)
+  
+  for (cur_row_cue_lookneg in these_rows_cue_lookneg)
+  {
+    affected_rows_cue_lookneg <- c(cur_row_cue_lookneg-1)
+    
+    EV4.3$stim_lookneg[affected_rows_cue_lookneg] <- 1
+    
+  }
+  
+  #cue_lookneu
+  these_rows_cue_lookneu <- which(EV4.3$stim_lookneu == 1)
+  
+  for (cur_row_cue_lookneu in these_rows_cue_lookneu)
+  {
+    affected_rows_cue_lookneu <- c(cur_row_cue_lookneu-1)
+    
+    EV4.3$stim_lookneu[affected_rows_cue_lookneu] <- 1
+    
+  }
+  
+  #cue_suppress
+  these_rows_cue_suppress <- which(EV4.3$stim_suppress == 1)
+  
+  for (cur_row_cue_suppress in these_rows_cue_suppress)
+  {
+    affected_rows_cue_suppress <- c(cur_row_cue_suppress-1)
+    
+    EV4.3$stim_suppress[affected_rows_cue_suppress] <- 1
+    
+  }
+  
+  #stim_lookneg
+  these_rows_stim_lookneg <- which(EV4.3$stim_lookneg == 1) 
+  
+  for (cur_row_stim_lookneg in these_rows_stim_lookneg)
+  {
+    affected_rows_stim_lookneg <- c(cur_row_stim_lookneg, cur_row_stim_lookneg+1, cur_row_stim_lookneg+2)
+    
+    EV4.3$stim_lookneg[affected_rows_stim_lookneg] <- 1
+    
+  }
+  
+  #stim_lookneu
+  these_rows_stim_lookneu <- which(EV4.3$stim_lookneu == 1) 
+  
+  for (cur_row_stim_lookneu in these_rows_stim_lookneu)
+  {
+    affected_rows_stim_lookneu <- c(cur_row_stim_lookneu, cur_row_stim_lookneu+1, cur_row_stim_lookneu+2)
+    
+    EV4.3$stim_lookneu[affected_rows_stim_lookneu] <- 1
+    
+  }
+  
+  #stim_suppress
+  these_rows_stim_suppress <- which(EV4.3$stim_suppress == 1)
+  
+  for (cur_row_stim_suppress in these_rows_stim_suppress)
+  {
+    affected_rows_stim_suppress <- c(cur_row_stim_suppress, cur_row_stim_suppress+1, cur_row_stim_suppress+2)
+    
+    EV4.3$stim_suppress[affected_rows_stim_suppress] <- 1
+    
+  }
+  
+ 
+  #make numeric (do this only to check in EV and ROI plot)
+  EV4.4 <- data.frame(lapply(EV4.3, as.numeric), stringsAsFactors=FALSE)
+  
+  #make run the current run number
+  EV4.4$Run <- run
+  
+  #grab only columns you need 
+  EV6 <- EV4.4[c(4:6)]
+
+  #rbind runs
+  out<-rbind(out,EV6)
+  
+  #add to list (all runs)
+  stimlistsmall<-out
+  
+  print(i)
+  }
+
+#add to bigger list 
+stimlistbig[[y]]<-stimlistsmall
+
+print(y)
+}
+```
+
+#combine ROI and event regressors
+```{r combine ROI and event regressors, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+#combine ROI and stim lists
+finalvars <- mapply(cbind, mybiglist, stimlistbig, SIMPLIFY=FALSE)
+
+#check 
+dim(finalvars[[1]])
+str(finalvars[[1]])
+fidescribe(finalvars[[1]])
+
+mynas<-which(is.na(finalvars))
+mynas
+
+```
+
+#plot 
+```{r plot, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+# get  correlation between timecourses and EVs
+cor.matrix <-cor(finalvars[[1]], use="complete.obs")
+range(abs(cor.matrix))
+mean(abs(cor.matrix))
+
+#plot
+corrplot(cor.matrix, method = "number")
+
+#plot tcs AND EVs together.
+for (i in 1:30) {
+  title <- names(finalvars[i]) 
+  print(sprintf("Subj %s", title))
+  datalong <- reshape(data=as.data.frame(finalvars[[i]]), 
+                      varying =1:11, 
+                      v.names = "Var", 
+                      timevar = "Var_name",
+                      idvar = "id",
+                      direction = "long")
+  datalong$Var_name <- as.factor(datalong$Var_name)
+  levels(datalong$Var_name) <-c("FP","lLOC","rMTG","rIPC","rIFG","rLOC","preSMA","OP","stim_lookneg", "stim_lookneu","stim_suppress")
+ 
+  corr <- cor(finalvars[[i]][1], finalvars[[i]][11],use="complete.obs")
+  plot <-ggplot(datalong, aes(x=id, y=Var, group=Var_name)) +
+    geom_line(aes(x=id,y=Var,color=Var_name),alpha=.6) +
+    ggtitle(paste(title, 'r =', format(corr, digits=2))) +
+    ylim(-3,3) +
+    theme_classic() + scale_color_brewer(palette="Set1")
+  print(plot)
+  readline(prompt="Press [enter] to continue")
+}
+
+```
+
+#gimmeSEM
+```{r gimmeSEM, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+
+#specify task-modulatory interaction effects
+inter_rIFG<-c("rIFG*stim_lookneg","rIFG*stim_suppress")
+
+#specify ecogenous variables (event regressors)
+exog<-c("stim_lookneg","stim_lookneu","stim_suppress")
+
+#group model with aggSEM
+fit_agg_run1 <- aggSEM(data = finalvars, 
+         out = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeout_sphere_funcpeak_rIFG_runs1",
+         header      = TRUE,
+         ar          = TRUE, 
+         plot        = TRUE,
+         exogenous   = exog,
+         mult_vars   = inter_rIFG,
+         mean_center_mult = T,
+         ex_lag = FALSE,
+         conv_vars = exog,
+         conv_interval = 2,
+         standardize=T)
+
+
+fit_agg_run2 <- aggSEM(data = finalvars, 
+         out = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimmeout_sphere_funcpeak_rIFG_runs2",
+         header      = TRUE,
+         ar          = TRUE, 
+         plot        = TRUE,
+         exogenous   = exog,
+         mult_vars   = inter_rIFG,
+         mean_center_mult = T,
+         ex_lag = FALSE,
+         conv_vars = exog,
+         conv_interval = 2,
+         standardize=T)
+
+
+#fit gimmeSEM model
+fit <- gimmeSEM(data = finalvars, 
+         out = "C:/Users/Psychology/Desktop/Projects/EAPSI_BEIJING/roi_meants/gimme/gimmeout_sphere_funcpeak_rIFG_runs1",
+         header      = TRUE,
+         ar          = TRUE, 
+         plot        = TRUE,
+         subgroup    = TRUE,
+         confirm_subgroup = NULL,
+         paths       = NULL, 
+         exogenous   = exog,
+         mult_vars   = inter_rIFG,
+         mean_center_mult = T,
+         ex_lag = FALSE,
+         conv_vars = exog,
+         conv_interval = 2,
+         standardize = T,
+         groupcutoff = .75, #.75 is what was used for validation papers
+         subcutoff   = .51, #this is lower because subgroups can be much smaller n's; 
+                            # .51 is what algorithm was validated with;
+                            # .50 is the defaul
+         diagnos     = FALSE)
+
+
+print(fit, mean = TRUE)
+
+```

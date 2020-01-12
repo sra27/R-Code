@@ -1,0 +1,884 @@
+---
+title: "Modeling the role of negative affect in the relationship between everyday pain and working memory"
+author: Steven R. Anderson(a), Joanna E. Witkin(a), Taylor Bolt, Maria M. Llabre, Elizabeth A. Reynolds Losin; (a) Indicates co-first authorship
+
+output:
+  html_document:
+    fig_width: 6
+    fig_height: 4
+    toc: true
+    toc_float: true
+    smooth_scroll: true
+    theme: united
+    highlight: tango
+---
+<style type="text/css">
+
+a:link {
+    color: DarkBlue;
+}
+
+body{ /* Normal  */
+   font-size: 14px;
+}
+td {  /* Table  */
+   font-size: 12px;
+}
+h1 { /* Header 1 */
+ font-size: 26x;
+ color: DarkBlue;
+}
+h2 { /* Header 2 */
+ font-size: 26px;
+ color: DarkBlue;
+}
+h3 { /* Header 3 */
+ font-size: 18px;
+ color: DarkBlue;
+}
+h4 { /* Header 4 */
+ font-size: 22px;
+ color: DarkOrange;
+}
+code.r{ /* Code block */
+  font-size: 14px;
+}
+pre { /* Code block */
+  font-size: 14px
+}
+</style>
+
+#Setup
+```{r setup, message=FALSE, warning=FALSE, echo=FALSE,cache=FALSE}
+
+library(lavaan)
+library(foreign)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(lattice)
+library(table1)#descriptive statistics table
+library(tidyr)
+library(semPlot)
+library(corrplot)
+library(kutils)
+library(psych)
+library(moments)#tests skewness and kurtosis
+library(ggplot2)
+library(semTable)
+library(ggpubr)
+library(influence.SEM)
+library(ggrepel)
+library(faoutlier)
+
+#disable scientific notation
+options(scipen=999)
+
+rm(list=ls()) #removes all the variables from workspace
+
+require("knitr")
+opts_knit$set(root.dir = "//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/SEM_PainCognition/Data_Files")
+```
+
+#Data Preparation
+```{r Data Preparation, echo=FALSE, message=FALSE, cache=FALSE}
+#RAW HCP BEHAVIORAL DATA
+HCP_behav_data1 <- read.csv("HCP1200_Restricted_Behav.csv")
+HCP_behav_data2 <- read.csv("HCP1200_Unrestricted_Behav.csv")
+
+#subset only age in years and subject ID from restricted data
+myvars <- c("Subject", "Age_in_Yrs","Race","Ethnicity")
+
+HCP_behav_data1.5 <- HCP_behav_data1[myvars]
+
+#merge subsetted restricted and unrestricted data
+HCP_behav_data_all <- merge(HCP_behav_data1.5,HCP_behav_data2,by="Subject")
+
+#LIST OF SUBJECTS WE HAVE FMRI DATA FOR
+subject_list <- read.csv('SubjectList_HCP416.csv',header=F) #these are the subjects we have fMRI data for
+colnames(subject_list)[1] <- "Subject"
+
+#fMRI WM task related activation 
+WM_ROI <- read.csv("WM_all_ROI.csv") 
+
+#RAW HCP PAIN INTENSITY DATA (EXCLUDED FROM MAIN DF DUE TO TOOLBOX GLITCH; RECEIVED VIA EMAIL FROM HCP)
+HCP_painintensity <- read.csv("S1200_TB_Pain_Intensity_Raw.csv") 
+colnames(HCP_painintensity)[3] <- "Pain_Intensity"
+
+#combine subject list of subjects we have fmri data for with full HCP 1200 behavioral dataframe
+HCP2 <- merge(subject_list,HCP_behav_data_all,by="Subject")
+
+#combine pain intensity variable with fmri subject list
+HCP3 <- merge(HCP_painintensity,subject_list,by="Subject",all.y=T)
+
+#identify suplicated Subject IDs due to test-retest of pain intensity
+#duplicated(HCP3$Subject)
+painint_duplicates<-as.data.frame(HCP3$Subject[duplicated(HCP3$Subject)]) #20 subjects are affected
+
+#NO DUPLICATES HCP PAIN INTENSITY DATA (EXCLUDED FROM MAIN DF DUE TO TOOLBOX GLITCH; RECEIVED VIA EMAIL FROM HCP)
+HCP_painintensity2 <- read.csv("S1200_TB_Pain_Intensity_Raw_firstscores.csv")
+colnames(HCP_painintensity2)[3] <- "Pain_Intensity"
+
+#combine pain intensity variable (no duplicates) with fmri subject list
+HCP3.2 <- merge(HCP_painintensity2,subject_list,by="Subject",all.y=T)
+
+#combine raw 416 behavioral data with pain intensity variable
+HCP4 <- merge(HCP2,HCP3.2,by="Subject")
+
+#combine merged behavioral data with WM ROI data
+SEM <- merge(HCP4,WM_ROI,by="Subject")
+
+#examine data
+#names(SEM)
+#head(SEM)
+
+#examine pain intensity variable
+summary(SEM$Pain_Intensity)
+str(SEM$Pain_Intensity)
+
+#rename variables of interest to easier to type names
+SEM$WMAcc_2bk <- SEM$WM_Task_2bk_Acc
+SEM$WMAcc_0bk <- SEM$WM_Task_0bk_Acc
+SEM$Sadness <- SEM$Sadness_Unadj
+SEM$Lonely <- SEM$Loneliness_Unadj
+SEM$PercHost <- SEM$PercHostil_Unadj
+SEM$PercRej <- SEM$PercReject_Unadj
+SEM$Fear <- SEM$FearAffect_Unadj
+SEM$Anger <- SEM$AngAffect_Unadj
+SEM$Hostil <- SEM$AngHostil_Unadj
+SEM$Aggr <- SEM$AngAggr_Unadj
+SEM$FearBody <- SEM$FearSomat_Unadj
+SEM$PainInterf<- SEM$PainInterf_Tscore 
+SEM$Stress <- SEM$PercStress_Unadj
+
+#----------------------------------------------------
+#define ROIs
+
+#get mean of the following parcels to create a larger dMFC that more closely covers the amount of brain area 
+
+SEM$dMFC <- rowMeans(SEM[c("ROI_4","ROI_23","ROI_24","ROI_25","ROI_34")], na.rm=TRUE)
+#Gordon parcel categories: ROI_4=Default, ROI_23=VentralAttn, ROI_24=FrontoParietal, ROI_25=Default, ROI_34=CinguloOperc
+
+SEM$aMCC <- rowMeans(SEM[c('ROI_22', 'ROI_27')], na.rm=TRUE)
+#Gordon parcel categories: ROI_22=CinguloOperc, ROI_27=CinguloOperc
+
+SEM$vmPFC <- rowMeans(SEM[c('ROI_116', 'ROI_117')], na.rm=TRUE)
+#Gordon parcel categories: ROI_116=Default, ROI_117=Default
+
+#-----------------------------------------
+#PARTICIPANT CHARACTERISTICS 
+
+#calculate age stats 
+summary(SEM$Age_in_Yrs) #Mean = 28.59
+sd(SEM$Age_in_Yrs) #SD = 3.72
+
+#count number of males and females
+str(SEM$Gender)
+table(SEM$Gender) #216 female
+
+#count race
+str(SEM$Race)
+table(SEM$Race)
+# Am. Indian/Alaskan Nat.  1 
+# Asian/Nat. Hawaiian/Othr Pacific Is. 30 
+# Black or African Am. 61 
+# More than one 13
+# Unknown or Not Reported 8
+# White 303 
+
+#count ethnicity
+str(SEM$Ethnicity)
+table(SEM$Ethnicity)
+# Hispanic/Latino   43  
+# Not Hispanic/Latino 370
+# Unknown or Not Reported 3
+
+#subset Non-Hispanic White participants
+nhw <- SEM[ which(SEM$Race=='White' & SEM$Ethnicity=='Not Hispanic/Latino'),] #271/416 = 
+
+#-----------------------------------------
+#subset only variables you need
+SEM2<-SEM[c(1:7,112,162,442:495,570,578,912:927)]
+
+#make pain intensity numeric 
+SEM2$Pain_Intensity<-as.numeric(SEM2$Pain_Intensity)
+
+```
+
+#Create zero pain subset
+```{r Create zero pain subset, echo=FALSE, message=FALSE, cache=FALSE}
+#create subset of subjects with non-zero pain intensity 
+SEM2_nonzero_painint <- SEM2[ which(SEM2$Pain_Intensity > 0), ]
+
+```
+
+#Examine non-zero pain intensity subset
+```{r Examine non-zero pain intensity subset, echo=FALSE, message=FALSE, cache=FALSE}
+ #examine data
+#histogram full sample
+histogram(~ Pain_Intensity, data = SEM2, type = "count",col="royalblue1",xlab="Pain Intensity",main="Full Sample")
+
+#histogram nonzero pain intensity subset
+histogram(~ Pain_Intensity, data = SEM2_nonzero_painint, type = "count",col="royalblue1",xlab="Pain Intensity",main="Non-Zero Pain Subset")
+
+#density plot - full sample
+ggdensity(SEM2$Pain_Intensity, color="gray18",fill="royalblue1",
+          xlab = "Pain Intensity",alpha=1,main="Full Sample")
+
+#density plot - non-zero pain subset
+ggdensity(SEM2_nonzero_painint$Pain_Intensity,fill="royalblue1",main = "Non-Zero Pain Subset",alpha=1,
+          xlab = "Pain Intensity")
+
+```
+
+#Outliers
+```{r Outliers, echo=FALSE, message=FALSE, cache=FALSE}
+#cooks distance method for detecting multivariate outliers
+paintintsmod_lm <- lm(WMAcc_2bk ~ Pain_Intensity + vmPFC + dMFC + aMCC + Sadness + Fear + Anger + Stress, data=SEM2)
+cooksd <- cooks.distance(paintintsmod_lm)
+
+#plot cook's d
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 1, col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>1,names(cooksd),""), col="red")  # add labels
+
+#extract individual rows
+influential <- as.numeric(names(cooksd)[(cooksd > 1)])  # influential row numbers
+
+#cooks distance method for detecting multivariate outliers (cutoff 1)
+#plot cook's d
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 1, col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>1,names(cooksd),""), col="red")  # add labels
+
+```
+
+#Sample Characteristics Table
+```{r Sample Characteristics Table, echo=FALSE, message=FALSE, cache=FALSE}
+SEM2b<-SEM2_nonzero_painint
+
+#Sample Characteristics Table with table1 package
+table1::label(SEM2b$Age_in_Yrs) <- "Age"
+table1::label(SEM2b$Race) <- "Race"
+table1::label(SEM2b$Ethnicity) <- "Ethnicity"
+SEM2b$Gender <- 
+  factor(SEM2b$Gender, levels=c("F","M"),
+         labels=c("Female", 
+                  "Male"))
+table1::table1(~Age_in_Yrs + Race + Ethnicity + Gender, data = SEM2b)
+
+```
+
+#Descriptive Statistics Table
+```{r Descriptive Statistics Table, echo=FALSE, message=FALSE, cache=FALSE}
+#subset only model variables
+SEM2_nonzero_painint_sub<-SEM2_nonzero_painint[c(8,65,9,66,68,72,73,77,78,79:81)]
+
+#Descriptive Statistics Table with table1 package
+table1::label(SEM2_nonzero_painint_sub$Pain_Intensity) <- "Pain Intensity"
+table1::label(SEM2_nonzero_painint_sub$WMAcc_2bk) <- "2-Back Accuracy"
+table1::label(SEM2_nonzero_painint_sub$ListSort_AgeAdj) <- "List Sort Score (Age Adjusted)"
+table1::label(SEM2_nonzero_painint_sub$Anger) <- "NIH Toolbox Anger-Affect Survey"
+table1::label(SEM2_nonzero_painint_sub$Stress) <- "NIH Toolbox Perceived Stress Survey"
+table1::label(SEM2_nonzero_painint_sub$Sadness) <- "NIH Toolbox Sadness Survey"
+table1::label(SEM2_nonzero_painint_sub$Fear) <- "NIH Toolbox Fear-Affect"
+table1::label(SEM2_nonzero_painint_sub$aMCC) <- "aMCC Activity"
+table1::label(SEM2_nonzero_painint_sub$dMFC) <- "dMFC Activity"
+table1::label(SEM2_nonzero_painint_sub$vmPFC) <- "vmPFC Activity"
+
+#table with only variables included in SEM
+table1::table1(~Pain_Intensity + WMAcc_2bk + ListSort_AgeAdj + Anger + Stress + Sadness + Fear + aMCC + dMFC + vmPFC, data = SEM2_nonzero_painint_sub) 
+
+```
+
+#Diagnostics
+```{r Data Diagnostics, echo=FALSE, message=FALSE, warning=FALSE,cache=FALSE}
+#assess normality, skewness, and kurtosis of each variable in models
+
+#WMAcc_2bk
+#descriptives
+summary(SEM2_nonzero_painint_sub$WMAcc_2bk)
+sd(SEM2_nonzero_painint_sub$WMAcc_2bk,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint_sub$WMAcc_2bk, 
+          main = "Density plot of WMAcc",
+          xlab = "WMAcc_2bk")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint_sub$WMAcc_2bk)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint_sub$WMAcc_2bk)
+
+#histogram
+hist(SEM2_nonzero_painint_sub$WMAcc_2bk)
+
+#skewness (values >= 2 indicates problem)
+skewness(SEM2_nonzero_painint_sub$WMAcc_2bk,na.rm=T)
+
+#kurtosis (values >= 7 indicates problem)
+kurtosis(SEM2_nonzero_painint$WMAcc_2bk,na.rm=T)
+
+#----------------------------------------
+#ListSort_AgeAdj
+#descriptives
+summary(SEM2_nonzero_painint_sub$ListSort_AgeAdj)
+sd(SEM2_nonzero_painint_sub$ListSort_AgeAdj,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint_sub$ListSort_AgeAdj, 
+          main = "Density plot of ListSort_AgeAdj",
+          xlab = "ListSort_AgeAdj")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint_sub$ListSort_AgeAdj)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint_sub$ListSort_AgeAdj)
+
+#histogram
+hist(SEM2_nonzero_painint_sub$ListSort_AgeAdj)
+
+#skewness (values >= 2 indicates problem)
+skewness(SEM2_nonzero_painint_sub$ListSort_AgeAdj,na.rm=T)
+
+#kurtosis (values >= 7 indicates problem)
+kurtosis(SEM2_nonzero_painint$ListSort_AgeAdj,na.rm=T)
+
+#----------------------------------------
+#Pain Intensity
+#descriptives
+summary(SEM2_nonzero_painint$Pain_Intensity)
+sd(SEM2_nonzero_painint$Pain_Intensity,na.rm=T)
+
+#density plot - full sample
+ggdensity(SEM2_nonzero_painint$Pain_Intensity, color="gray18",fill="#E7B800",alpha = .4,
+          main = "Density Plot of Pain Intensity",
+          xlab = "Pain Intensity")
+
+#density plot - non-zero pain subset
+ggdensity(SEM2_nonzero_painint$Pain_Intensity, color="gray18",fill="#E7B800",alpha = .4,
+          main = "Density Plot of Pain Intensity",
+          xlab = "Pain Intensity")
+
+#kernel density plot 
+plot(density(SEM2_nonzero_painint_sub$Pain_Intensity,na.rm=T))
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint_sub$Pain_Intensity)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint_sub$Pain_Intensity)
+
+#histogram
+hist(SEM2_nonzero_painint_sub$Pain_Intensity)
+
+#skewness (values >= 2 indicates problem)
+skewness(SEM2_nonzero_painint_sub$Pain_Intensity,na.rm=T)
+
+#kurtosis (values >= 7 indicates problem)
+kurtosis(SEM2_nonzero_painint_sub$Pain_Intensity,na.rm=T)
+
+#----------------------------------------
+#Pain Interference
+#descriptives
+summary(SEM2_nonzero_painint$PainInterf)
+sd(SEM2$PainInterf,na.rm=T)
+
+#density plot
+ggdensity(SEM2$PainInterf, color="gray18",fill="#00AFBB",alpha = .4,
+          main = "Density Plot of Pain Interference",
+          xlab = "Pain Interference",na.rm=T)
+
+#kernel density plot 
+plot(density(SEM2$PainInterf,na.rm=T))
+
+#Q-Q plot
+ggqqplot(SEM2$PainInterf)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2$PainInterf)
+
+#histogram
+hist(SEM2$PainInterf)
+
+#skewness 
+skewness(SEM2$PainInterf,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2$PainInterf,na.rm=T)
+
+#----------------------------------------
+#vmPFC
+#descriptives
+summary(SEM2_nonzero_painint$vmPFC)
+sd(SEM2_nonzero_painint$vmPFC)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$vmPFC, 
+          main = "Density plot of vmPFC",
+          xlab = "vmPFC")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$vmPFC)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$vmPFC)
+
+#histogram
+hist(SEM2_nonzero_painint$vmPFC)
+
+#skewness 
+skewness(SEM2_nonzero_painint$vmPFC,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$vmPFC,na.rm=T)
+#----------------------------------------
+#aMCC
+#descriptives
+summary(SEM2_nonzero_painint$aMCC)
+sd(SEM2_nonzero_painint$aMCC)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$aMCC, 
+          main = "Density plot of aMCC",
+          xlab = "aMCC")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$aMCC)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$aMCC)
+
+#histogram
+hist(SEM2_nonzero_painint$aMCC)
+
+#skewness 
+skewness(SEM2_nonzero_painint$aMCC,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$aMCC,na.rm=T)
+#----------------------------------------
+#dMFC
+#descriptives
+summary(SEM2_nonzero_painint$dMFC)
+sd(SEM2_nonzero_painint$dMFC)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$dMFC, 
+          main = "Density plot of dMFC",
+          xlab = "dMFC")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$dMFC)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$dMFC)
+
+#histogram
+hist(SEM2_nonzero_painint$dMFC)
+
+#skewness 
+skewness(SEM2_nonzero_painint$dMFC,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$dMFC,na.rm=T)
+#----------------------------------------
+#Anger
+#descriptives
+summary(SEM2_nonzero_painint$Anger)
+sd(SEM2_nonzero_painint$Anger,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$Anger, 
+          main = "Density plot of Anger",
+          xlab = "Anger")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$Anger)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$Anger)
+
+#histogram
+hist(SEM2_nonzero_painint$Anger)
+
+#skewness 
+skewness(SEM2_nonzero_painint$Anger,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$Anger,na.rm=T)
+
+#----------------------------------------
+#Stress
+#descriptives
+summary(SEM2_nonzero_painint$Stress)
+sd(SEM2_nonzero_painint$Stress,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$Stress, 
+          main = "Density plot of Stress",
+          xlab = "Stress")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$Stress)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$Stress)
+
+#histogram
+hist(SEM2_nonzero_painint$Stress)
+
+#skewness 
+skewness(SEM2_nonzero_painint$Stress,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$Stress,na.rm=T)
+
+#----------------------------------------
+#Sadness
+#descriptives
+summary(SEM2_nonzero_painint$Sadness)
+sd(SEM2_nonzero_painint$Sadness,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$Sadness, 
+          main = "Density plot of Sadness",
+          xlab = "Sadness")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$Sadness)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$Sadness)
+
+
+#histogram
+hist(SEM2_nonzero_painint$Sadness)
+
+#skewness 
+skewness(SEM2_nonzero_painint$Sadness,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$Sadness,na.rm=T)
+
+#----------------------------------------
+#Fear
+#descriptives
+summary(SEM2_nonzero_painint$Fear)
+sd(SEM2_nonzero_painint$Fear,na.rm=T)
+
+#density plot
+ggdensity(SEM2_nonzero_painint$Fear, 
+          main = "Density plot of Fear",
+          xlab = "Fear")
+
+#Q-Q plot
+ggqqplot(SEM2_nonzero_painint$Fear)
+
+#formal test of normality, p-value > .05 indicates normality
+shapiro.test(SEM2_nonzero_painint$Fear)
+
+
+#histogram
+hist(SEM2_nonzero_painint$Fear)
+
+#skewness 
+skewness(SEM2_nonzero_painint$Fear,na.rm=T)
+
+#kurtosis
+kurtosis(SEM2_nonzero_painint$Fear,na.rm=T)
+
+#------------------------------------------
+#calculate variance inflation factor
+library(car)
+vif_mod<-lm(WMAcc_2bk ~ Pain_Intensity + Anger + vmPFC + aMCC + dMFC,data=SEM2_nonzero_painint)
+summary(vif_mod)
+vif(vif_mod)
+
+```
+
+#Self-reported negative affect latent construct 
+```{r Self-reported negative affect latent construct , echo=FALSE, message=FALSE, cache=FALSE}
+#specify model
+model <- '
+neg =~ Anger + Stress + Sadness + Fear 
+'
+
+#fit model
+fit <- lavaan::sem(model, data=SEM2_nonzero_painint, estimator = "MLR")
+
+#get fit indices and path estimates
+summary(fit, fit.measures = TRUE, standardized=TRUE, modindices = TRUE)
+
+#plot
+semPaths(fit,what = "path",whatLabels="est",title=F,sizeMan=11,sizeLat=11,rotation=3,curvePivot = T,layout="tree",edge.label.cex=1,thresholds=TRUE,intercepts = FALSE,residuals=F,reorder=T)
+
+```
+
+#Zero-Order Correlations Among Variables of Interest
+```{r  Zero-Order Correlations Among Variables of Interest, warnings=FALSE, echo=FALSE, message=FALSE, cache=FALSE}
+
+#rename variables
+SEM2_nonzero_painint_sub_rename<-SEM2_nonzero_painint_sub
+names(SEM2_nonzero_painint_sub_rename) <- c("PSQI-Pain", "Pain Intensity","List Sorting Score","2-Back Accuracy","Sadness","Fear-Affect","Anger-Affect","Pain Interference","Perceived Stress","dMFC Activity","aMCC Activity", "vmPFC Activity")
+
+#assess correlations in full sample
+r<-corr.test(SEM2_nonzero_painint_sub_rename, y = NULL, use = "pairwise",method="pearson",adjust="fdr", alpha=.05,ci=T)
+
+#plot matrix
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+corrplot(r$r, p.mat = r$p,method = "color",col = col(200), type="full",tl.cex=.8,
+         tl.col = "black", order="hclust",hclust.method="ward.D2",addrect=4, tl.srt = 45,insig = "blank",pch.col = "black")
+
+r$r
+
+#fdr corrected p-values 
+#r$p
+#-----------------------------
+#assess correlations between variables of interest
+
+#pain intensity and pain interference in full sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$PainInterf, method=c("pearson"))
+
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=PainInterf, y=Pain_Intensity,color="royalblue1")) +
+  geom_jitter(size=3,width=.3,color="royalblue1") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("Pain Interference") + theme(legend.position = "none")
+
+#pain intensity and psqi sleep in non-zero pain sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$PSQI_Pain, method=c("pearson"))
+
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=PSQI_Pain, y=Pain_Intensity,color="#9475dc")) +
+  geom_jitter(size=3,width=.3,color="#9475dc") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm,color="black") + theme_classic() + ylab("Pain Intensity") + xlab("PSQI - Pain") + theme(legend.position = "none") 
+
+#-----------------------------------
+#pain intensity and anger correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$Anger, method=c("pearson"))
+
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Anger, y=Pain_Intensity,color="#bf78b8")) +
+  geom_jitter(size=3,width=.3,color="#bf78b8") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("Anger")  + theme(legend.position = "none") 
+
+#pain intensity and perceived stress correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$Stress, method=c("pearson"))
+
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Stress, y=Pain_Intensity,color="#bf78b8")) +
+  geom_jitter(size=3,width=.3,color="#bf78b8") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("Stress")  + theme(legend.position = "none") 
+
+#pain intensity and Fear correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$Fear, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Fear, y=Pain_Intensity,color="#bf78b8")) +
+  geom_jitter(size=3,width=.3,color="#bf78b8") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("Fear")  + theme(legend.position = "none") 
+
+#pain intensity and Sadness correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$Sadness, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Sadness, y=Pain_Intensity,color="#bf78b8")) +
+  geom_jitter(size=3,width=.3,color="#bf78b8") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("Sadness")  + theme(legend.position = "none") 
+
+#-----------------------------------
+#pain intensity and WMAcc_2bk correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$WMAcc_2bk, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=WMAcc_2bk, y=Pain_Intensity,color="#de7a95")) +
+  geom_jitter(size=3,width=.3,color="#de7a95") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("2-Back Accuracy") + theme(legend.position = "none") 
+
+#-----------------------------------
+#pain intensity and ListSort correlation in non-zero sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$ListSort_AgeAdj, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=ListSort_AgeAdj, y=Pain_Intensity,color="#bf78b8")) +
+  geom_jitter(size=3,width=.3,color="#bf78b8") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + ylab("Pain Intensity") + xlab("List Sorting Score")  + theme(legend.position = "none") 
+
+#---------------------------------
+#ROIs and WMAcc_2bk correlation in non-zero pain
+cor.test(SEM2_nonzero_painint$aMCC, SEM2_nonzero_painint$WMAcc_2bk, method=c("pearson"))
+
+#plot 
+aMCC_wmacc_plot<-ggplot(SEM2_nonzero_painint, aes(x=aMCC, y=WMAcc_2bk,color="coral")) +
+  geom_point(size=2,color="coral") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("aMCC Activity") + ylab("2-Back Accuracy") + theme(legend.position = "none")
+
+#vmPFC and WMAcc_2bk correlation in non-zero pain
+cor.test(SEM2_nonzero_painint$dMFC, SEM2_nonzero_painint$WMAcc_2bk, method=c("pearson"))
+
+#plot 
+dMFC_wmacc_plot<-ggplot(SEM2_nonzero_painint, aes(x=dMFC, y=WMAcc_2bk,color="darkorchid2")) +
+  geom_point(size=2,color="darkorchid2") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("dMFC Activity") + ylab("2-Back Accuracy") + theme(legend.position = "none")
+
+#vmPFC and WMAcc_2bk correlation in non-zero pain
+cor.test(SEM2_nonzero_painint$vmPFC, SEM2_nonzero_painint$WMAcc_2bk, method=c("pearson"))
+
+#plot 
+vmPFC_wmacc_plot<-ggplot(SEM2_nonzero_painint, aes(x=vmPFC, y=WMAcc_2bk,color="royalblue1")) +
+  geom_point(size=2,color="royalblue1") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("vmPFC Activity") + ylab("2-Back Accuracy") + theme(legend.position = "none")
+
+#combine into one plot
+figure_ROIS <- ggarrange(aMCC_wmacc_plot, dMFC_wmacc_plot,vmPFC_wmacc_plot,
+                    labels = c("b", "c", "d"),
+                    ncol = 3, nrow = 1)
+figure_ROIS
+
+#correct p-values for multiple comparisons
+#put unadjusted p-values into a vector
+p<- c(0.8319,0.9868,0.0000897) 
+
+#Bonferroni correct p-values
+p.adjust(p, method = "bonferroni", n = length(p))
+
+# aMCC=1.0000000
+# dMFC=1.0000000
+# vmPFC=0.0002691  ***
+
+#------------------------------------------
+#WMAcc_2bk and ListSort correlation in non-zero pain
+cor.test(SEM2_nonzero_painint$ListSort_AgeAdj, SEM2_nonzero_painint$WMAcc_2bk, method=c("pearson"))
+
+#plot 
+ggplot(SEM2_nonzero_painint, aes(x=ListSort_AgeAdj, y=WMAcc_2bk,color="coral")) +
+  geom_point(size=2,color="coral") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("List Sorting Score") + ylab("2-Back Accuracy") + theme(legend.position = "none")
+
+#---------------------------------
+#pain intensity and Age in Years in nonzero pain sample
+cor.test(SEM2_nonzero_painint$Pain_Intensity, SEM2_nonzero_painint$Age_in_Yrs, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Age_in_Yrs, y=Pain_Intensity,color="royalblue1")) +
+  geom_point(size=3,color="royalblue1") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("Age in Years") + ylab("Pain Intensity")
+
+#WMacc_2bk and Age in Years full sample 
+cor.test(SEM2_nonzero_painint$WMAcc_2bk, SEM2_nonzero_painint$Age_in_Yrs, method=c("pearson"))
+
+#plot
+ggplot(SEM2_nonzero_painint, aes(x=Age_in_Yrs, y=WMAcc_2bk,color="royalblue1")) +
+  geom_point(size=3,color="royalblue1") + 
+  geom_smooth(data=SEM2_nonzero_painint,method=lm, color="black") + theme_classic() + xlab("Age in Years") + ylab("2-Back Accuracy (% Correct)") 
+
+```
+
+#Pain Intensity Associated with 2-Back Task Performance 
+```{r Pain Intensity Associated with 2-Back Task Performance, warnings=FALSE, message=FALSE, cache=FALSE}
+#subset only model variables
+SEM2_nonzero_painint_sub<-SEM2_nonzero_painint[c("Pain_Intensity","WMAcc_2bk","Sadness","Fear","Anger","Stress","aMCC","dMFC","vmPFC")]
+
+#specify model with WMAcc_2bk outcome
+painintnsmod2 <- '
+neg =~ Anger + Stress + Sadness + Fear
+
+#direct effect
+WMAcc_2bk ~ c1*Pain_Intensity
+
+#mediation a paths
+aMCC ~ a1*Pain_Intensity
+dMFC ~ a2*Pain_Intensity
+vmPFC ~ a3*Pain_Intensity
+
+neg ~ a4*Pain_Intensity
+
+#mediation b paths
+WMAcc_2bk ~ b1*aMCC
+WMAcc_2bk ~ b2*dMFC
+WMAcc_2bk ~ b3*vmPFC
+
+WMAcc_2bk ~ b4*neg
+
+#mediation d paths
+aMCC ~ d1*neg
+dMFC ~ d2*neg
+vmPFC ~ d3*neg
+
+#indirect effects
+pain_aMCC_WM := a1*b1
+pain_dMFC_WM := a2*b2
+pain_vmPFC_WM := a3*b3
+pain_neg_WM := a4*b4
+
+ pain_neg_aMCC_WM := a4*d1*b1
+ pain_neg_dMFC_WM := a4*d2*b2
+ pain_neg_vmPFC_WM := a4*d3*b3
+
+#mod indices
+vmPFC ~~ dMFC
+aMCC ~~ vmPFC
+aMCC ~~ dMFC
+
+#total effect
+totpainintense := 
+c1 + (a1*b1) + (a2*b2) + (a3*b3) + (a4*d1*d2*d3*b4)
+
+'
+
+#fit model
+totfit2 <- lavaan::sem(painintnsmod2, data=SEM2_nonzero_painint_sub, estimator = "MLR")
+
+#get fit indices and path estimates
+summary(totfit2, fit.measures = TRUE, standardized=TRUE, modindices = TRUE)
+
+#get parameter estimates
+fit_pars<-parameterEstimates(totfit2)
+
+#plot
+semPaths(totfit2,what = "path",whatLabels="est",title=F,sizeMan=11,sizeLat=11,rotation=3,curvePivot = T,layout="tree",edge.label.cex=1,thresholds=TRUE,intercepts = FALSE,residuals=F,reorder=T)
+
+#create table
+#semTable(totfit2,type=c("csv","html"),file="//datastore01.psy.miami.edu/Groups/ELosin_Lab/Research/Research_Projects/SEM_PainCognition/Scripts/SEM_tableoutput_2back")
+
+#run again without MLR and using bootstrapped indirect effects
+medmodel_boostrapped_se <- lavaan::sem(painintnsmod2, data =SEM2_nonzero_painint_sub,se = "bootstrap", bootstrap = 1000)
+
+summary(medmodel_boostrapped_se,standardized=TRUE,fit.measures=TRUE)
+
+#---------------------------------
+#specify model with only vmPFC 
+painintnsmod2_vmpfc_only <- '
+#direct effect
+WMAcc_2bk ~ c1*Pain_Intensity
+
+#mediation a paths
+vmPFC ~ a1*Pain_Intensity
+
+#mediation b paths
+WMAcc_2bk ~ b1*vmPFC
+
+#indirect effects
+pain_vmPFC_WM := a1*b1
+
+#total effect
+totpainintense := c1 + (a1*b1) 
+'
+
+#fit model
+totfit2_vmpfc_only <- lavaan::sem(painintnsmod2_vmpfc_only, data=SEM2_nonzero_painint_sub, estimator = "MLR")
+
+#get fit indices and path estimates
+summary(totfit2_vmpfc_only, fit.measures = TRUE, standardized=TRUE, modindices = TRUE)
+
+#plot
+semPaths(totfit2_vmpfc_only,what = "path",whatLabels="est",title=F,sizeMan=11,sizeLat=11,rotation=3,curvePivot = T,layout="tree",edge.label.cex=1,thresholds=TRUE,intercepts = FALSE,residuals=F,reorder=T)
+```
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
